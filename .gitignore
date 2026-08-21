@@ -6,6 +6,8 @@ dist/
 .env
 *.log
 screenshots/
+backend/storage/
+.pytest_cache/
+
 AImodels/checkpoints/
 AImodels/checkpoints_ft/
-.pytest_cache/
