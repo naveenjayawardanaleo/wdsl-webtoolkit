@@ -33,6 +33,7 @@ def analyze():
     project_id = payload.get("project_id")
     project_name = payload.get("project_name")
     client_id = payload.get("client_id")
+    client_email = payload.get("client_email")
 
     if not raw_url or not raw_url.strip():
         return jsonify({"error": "url is required"}), 400
@@ -48,8 +49,16 @@ def analyze():
         if not project:
             return jsonify({"error": "project not found for this developer"}), 404
     else:
+        if not client_id and client_email:
+            from ..models import User
+
+            client = User.query.filter_by(email=client_email.strip().lower(), role="client").first()
+            if not client:
+                return jsonify({"error": f"no client account found for {client_email}"}), 404
+            client_id = client.user_id
+
         if not project_name or not client_id:
-            return jsonify({"error": "project_id, or project_name + client_id, is required"}), 400
+            return jsonify({"error": "project_id, or project_name + (client_id or client_email), is required"}), 400
         project = Project(project_name=project_name, developer_id=developer_id, client_id=client_id)
         db.session.add(project)
         db.session.flush()

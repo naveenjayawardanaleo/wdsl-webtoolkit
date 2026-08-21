@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, send_file
 from flask_jwt_extended import get_jwt, get_jwt_identity, jwt_required
 
 from ..auth_utils import roles_required
@@ -66,6 +66,39 @@ def get_report(report_id):
 
     include_technical = role in ("developer", "admin")
     return jsonify(report.to_dict(include_technical=include_technical))
+
+
+@reports_bp.route("/reports/<int:report_id>/screenshot", methods=["GET"])
+@jwt_required()
+def get_screenshot(report_id):
+    return _serve_screenshot(report_id, annotated=False)
+
+
+@reports_bp.route("/reports/<int:report_id>/screenshot/annotated", methods=["GET"])
+@jwt_required()
+def get_annotated_screenshot(report_id):
+    return _serve_screenshot(report_id, annotated=True)
+
+
+def _serve_screenshot(report_id, annotated):
+    user_id = int(get_jwt_identity())
+    role = get_jwt().get("role")
+
+    report = Report.query.get(report_id)
+    if not report:
+        return jsonify({"error": "report not found"}), 404
+
+    project_ids = _accessible_project_ids(user_id, role)
+    if project_ids is not None and report.project_id not in project_ids:
+        return jsonify({"error": "forbidden"}), 403
+
+    if annotated and role not in ("developer", "admin"):
+        return jsonify({"error": "annotated screenshots are only available in the technical report view"}), 403
+
+    path = report.annotated_screenshot_path if annotated else report.screenshot_path
+    if not path:
+        return jsonify({"error": "screenshot not available"}), 404
+    return send_file(path, mimetype="image/png")
 
 
 @reports_bp.route("/violations/<int:violation_id>/status", methods=["PATCH"])
