@@ -1,0 +1,7 @@
+flask
+flask-cors
+playwright
+axe-playwright-python
+torch
+torchvision
+pillow
