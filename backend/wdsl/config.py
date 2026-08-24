@@ -34,6 +34,16 @@ class Config:
 
     SCREENSHOT_DIR = os.environ.get("SCREENSHOT_DIR", str(BACKEND_DIR / "storage" / "screenshots"))
 
+    # SMTP config for the payment-slip "receive file, forward by email, discard"
+    # endpoint (Task: Payment details page). If left blank, the endpoint still
+    # responds but returns a clear error telling the user to use WhatsApp instead.
+    SMTP_HOST = os.environ.get("SMTP_HOST", "")
+    SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
+    SMTP_USER = os.environ.get("SMTP_USER", "")
+    SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
+    SMTP_FROM = os.environ.get("SMTP_FROM", "")
+    PAYMENT_NOTIFY_EMAIL = os.environ.get("PAYMENT_NOTIFY_EMAIL", "premodya667@gmail.com")
+
 
 class TestConfig(Config):
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"

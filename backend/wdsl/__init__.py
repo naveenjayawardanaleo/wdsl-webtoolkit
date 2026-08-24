@@ -18,12 +18,14 @@ def create_app(config_object=Config):
     from .routes.reports import reports_bp
     from .routes.comments import comments_bp
     from .routes.admin import admin_bp
+    from .routes.payment import payment_bp
 
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(analyze_bp, url_prefix="/api")
     app.register_blueprint(reports_bp, url_prefix="/api")
     app.register_blueprint(comments_bp, url_prefix="/api")
     app.register_blueprint(admin_bp, url_prefix="/api/admin")
+    app.register_blueprint(payment_bp, url_prefix="/api/payment")
 
     @app.route("/")
     def health_check():
