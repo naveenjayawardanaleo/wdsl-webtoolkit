@@ -6,6 +6,8 @@ import CookieConsent from './components/CookieConsent';
 import { Spinner } from './components/ReportWidgets';
 import Landing from './pages/Landing';
 import HowItWorks from './pages/HowItWorks';
+import AboutUs from './pages/AboutUs';
+import ContactUs from './pages/ContactUs';
 import Pricing from './pages/Pricing';
 import Payment from './pages/Payment';
 import PrivacyPolicy from './pages/PrivacyPolicy';
@@ -54,6 +56,8 @@ function AppRoutes() {
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/how-it-works" element={<HowItWorks />} />
+            <Route path="/about-us" element={<AboutUs />} />
+            <Route path="/contact-us" element={<ContactUs />} />
             <Route path="/pricing" element={<Pricing />} />
             <Route path="/payment" element={<Payment />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />

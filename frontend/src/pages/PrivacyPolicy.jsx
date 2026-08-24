@@ -22,8 +22,8 @@ export default function PrivacyPolicy() {
           <p>
             Your data is kept for as long as your account is active. You can request access to, correction of, or
             deletion of your data at any time by contacting{' '}
-            <a href="mailto:premodya667@gmail.com" className="font-medium text-brand-700 hover:underline">
-              premodya667@gmail.com
+            <a href="mailto:info@wdsl.lk" className="font-medium text-brand-700 hover:underline">
+              info@wdsl.lk
             </a>
             . See the{' '}
             <a href="/cookie-policy" className="font-medium text-brand-700 hover:underline">

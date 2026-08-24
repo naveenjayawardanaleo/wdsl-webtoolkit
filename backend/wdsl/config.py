@@ -43,6 +43,9 @@ class Config:
     SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
     SMTP_FROM = os.environ.get("SMTP_FROM", "")
     PAYMENT_NOTIFY_EMAIL = os.environ.get("PAYMENT_NOTIFY_EMAIL", "premodya667@gmail.com")
+    # General/business contact (Contact Us page) — deliberately distinct from
+    # PAYMENT_NOTIFY_EMAIL, which is specifically for payment-slip verification.
+    CONTACT_NOTIFY_EMAIL = os.environ.get("CONTACT_NOTIFY_EMAIL", "info@wdsl.lk")
 
 
 class TestConfig(Config):
