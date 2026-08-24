@@ -1,5 +1,81 @@
 @import "tailwindcss";
 
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+
+  /* Brand primary — magenta/purple sampled from the WDSL WebToolkit logo mark */
+  --color-brand-50: #fcf3fa;
+  --color-brand-100: #f7e3f3;
+  --color-brand-200: #eec4e5;
+  --color-brand-300: #e198d3;
+  --color-brand-400: #d161bb;
+  --color-brand-500: #b5359c;
+  --color-brand-600: #872875;
+  --color-brand-700: #601c53;
+  --color-brand-800: #401337;
+  --color-brand-900: #250b20;
+
+  /* Brand secondary — navy sampled from the logo's circuit-ring icon */
+  --color-ink-50: #f4f4fb;
+  --color-ink-100: #e1e2f5;
+  --color-ink-200: #bec0e9;
+  --color-ink-300: #8d91d8;
+  --color-ink-400: #5459c5;
+  --color-ink-600: #272b72;
+  --color-ink-700: #171943;
+  --color-ink-800: #14163b;
+  --color-ink-900: #0e0f28;
+}
+
 body {
   background: #f8fafc;
+  font-family: var(--font-sans);
+}
+
+/* Visible keyboard focus everywhere, so focus is never conveyed by color alone */
+:focus-visible {
+  outline: 2px solid var(--color-brand-600);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: -3rem;
+  z-index: 100;
+  background: var(--color-ink-800);
+  color: #fff;
+  padding: 0.75rem 1.25rem;
+  border-radius: 0.75rem;
+  font-weight: 600;
+  transition: top 0.15s ease;
+}
+
+.skip-link:focus {
+  top: 1rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.6s ease-out both;
 }
