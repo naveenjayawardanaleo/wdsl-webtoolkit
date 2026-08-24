@@ -8,6 +8,7 @@ const ROLE_HOME = { developer: '/developer', client: '/client', admin: '/admin' 
 const PUBLIC_LINKS = [
   { to: '/', label: 'Home' },
   { to: '/how-it-works', label: 'How It Works' },
+  { to: '/about-us', label: 'About Us' },
   { to: '/pricing', label: 'Pricing' },
 ];
 
