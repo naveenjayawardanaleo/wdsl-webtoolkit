@@ -95,6 +95,34 @@ def list_reports():
     return jsonify([r.to_dict(include_technical=include_technical) for r in reports])
 
 
+@reports_bp.route("/projects/<int:project_id>/reports", methods=["GET"])
+@jwt_required()
+def list_project_reports(project_id):
+    """Every past scan for one project, newest first -- backs the "previous
+    scans" switcher on the report view (a rescan adds a new report row
+    rather than overwriting the one being viewed, so this is the only way
+    to browse a project's score history)."""
+    user_id = int(get_jwt_identity())
+    role = get_jwt().get("role")
+
+    project_ids = _accessible_project_ids(user_id, role)
+    if project_ids is not None and project_id not in project_ids:
+        return jsonify({"error": "forbidden"}), 403
+
+    reports = Report.query.filter_by(project_id=project_id).order_by(Report.created_at.desc()).all()
+    return jsonify(
+        [
+            {
+                "report_id": r.report_id,
+                "url": r.url,
+                "accessibility_score": r.accessibility_score,
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+            }
+            for r in reports
+        ]
+    )
+
+
 @reports_bp.route("/reports/<int:report_id>", methods=["GET"])
 @jwt_required()
 def get_report(report_id):

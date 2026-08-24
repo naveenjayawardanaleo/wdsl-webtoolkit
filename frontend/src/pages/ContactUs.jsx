@@ -65,6 +65,7 @@ export default function ContactUs() {
             <InfoRow label="Location" value="346, Weligampitiya, Ja-Ela, Sri Lanka" />
           </dl>
         </Reveal>
+        
 
         <Reveal delay={140} className="md:col-span-3">
           {status === 'success' ? (

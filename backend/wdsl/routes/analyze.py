@@ -3,7 +3,7 @@ import uuid
 from pathlib import Path
 
 from flask import Blueprint, current_app, jsonify, request
-from flask_jwt_extended import get_jwt, get_jwt_identity
+from flask_jwt_extended import get_jwt, get_jwt_identity, jwt_required
 from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
@@ -32,69 +32,35 @@ def _lookup_user_id(email, role):
     return user.user_id if user else None
 
 
-@analyze_bp.route("/analyze", methods=["POST"])
-@roles_required("developer", "client")
-def analyze():
-    payload = request.get_json(silent=True) or {}
-    raw_url = payload.get("url")
-    project_id = payload.get("project_id")
-    project_name = payload.get("project_name")
+class ScanError(Exception):
+    def __init__(self, message, status):
+        super().__init__(message)
+        self.message = message
+        self.status = status
 
-    if not raw_url or not raw_url.strip():
-        return jsonify({"error": "url is required"}), 400
 
-    url = normalize_url(raw_url)
-    if url is None:
-        return jsonify({"error": "invalid url"}), 400
-
-    acting_user_id = int(get_jwt_identity())
-    acting_role = get_jwt().get("role")
-
-    if project_id:
-        filters = {"project_id": project_id}
-        filters["developer_id" if acting_role == "developer" else "client_id"] = acting_user_id
-        project = Project.query.filter_by(**filters).first()
-        if not project:
-            return jsonify({"error": "project not found for this account"}), 404
-    else:
-        if not project_name:
-            return jsonify({"error": "project_id, or project_name, is required"}), 400
-
-        if acting_role == "developer":
-            developer_id = acting_user_id
-            client_id = payload.get("client_id")
-            client_email = payload.get("client_email")
-            if not client_id and client_email:
-                client_id = _lookup_user_id(client_email, "client")
-                if client_id is None:
-                    return jsonify({"error": f"no client account found for {client_email}"}), 404
-        else:
-            client_id = acting_user_id
-            developer_id = payload.get("developer_id")
-            developer_email = payload.get("developer_email")
-            if not developer_id and developer_email:
-                developer_id = _lookup_user_id(developer_email, "developer")
-                if developer_id is None:
-                    return jsonify({"error": f"no developer account found for {developer_email}"}), 404
-
-        project = Project(project_name=project_name, developer_id=developer_id, client_id=client_id)
-        db.session.add(project)
-        db.session.flush()
-
+def _run_scan_pipeline(url, project):
+    """Runs the full scan (Playwright render, axe-core, Lighthouse, the CV
+    model, the AI suggestion generator) and persists a new Report row tied
+    to `project`. Shared by /analyze (first scan) and /reports/:id/rescan
+    (every later scan of the same project) -- a rescan never overwrites an
+    existing report, it always adds a new one so score-over-time history is
+    preserved.
+    """
     try:
         screenshot_bytes, axe_response = capture_and_scan(url)
     except PlaywrightTimeoutError:
-        return jsonify({"error": f"Timed out loading {url}"}), 504
+        raise ScanError(f"Timed out loading {url}", 504)
     except PlaywrightError as exc:
         message = str(exc).split("\nCall log:")[0].strip()
-        return jsonify({"error": f"Could not load {url}: {message}"}), 502
+        raise ScanError(f"Could not load {url}: {message}", 502)
     except Exception as exc:  # noqa: BLE001
-        return jsonify({"error": f"Unexpected error loading {url}: {exc}"}), 500
+        raise ScanError(f"Unexpected error loading {url}: {exc}", 500)
 
     try:
         cv_prediction = cv_model.classify_screenshot(screenshot_bytes)
     except Exception as exc:  # noqa: BLE001
-        return jsonify({"error": f"CV classification failed: {exc}"}), 500
+        raise ScanError(f"CV classification failed: {exc}", 500)
 
     violations = summarize_violations(axe_response)
     accessibility_score = compute_accessibility_score(violations)
@@ -152,22 +118,105 @@ def analyze():
     screenshot_b64 = base64.b64encode(screenshot_bytes).decode("ascii")
     annotated_b64 = base64.b64encode(annotated_bytes).decode("ascii")
 
-    return jsonify(
-        {
-            "report_id": report.report_id,
-            "project_id": project.project_id,
-            "url": url,
-            "screenshot": f"data:image/png;base64,{screenshot_b64}",
-            "annotated_screenshot": f"data:image/png;base64,{annotated_b64}",
-            "axe_results": {
-                "violations": violations,
-                "violations_count": len(violations),
-                "passes_count": len(axe_response.get("passes", [])),
-            },
-            "lighthouse_result": lighthouse_result,
-            "cv_prediction": cv_prediction,
-            "accessibility_score": accessibility_score,
-            "ai_suggestions": suggestions,
-            "created_at": report.created_at.isoformat(),
-        }
-    )
+    return {
+        "report_id": report.report_id,
+        "project_id": project.project_id,
+        "url": url,
+        "screenshot": f"data:image/png;base64,{screenshot_b64}",
+        "annotated_screenshot": f"data:image/png;base64,{annotated_b64}",
+        "axe_results": {
+            "violations": violations,
+            "violations_count": len(violations),
+            "passes_count": len(axe_response.get("passes", [])),
+        },
+        "lighthouse_result": lighthouse_result,
+        "cv_prediction": cv_prediction,
+        "accessibility_score": accessibility_score,
+        "ai_suggestions": suggestions,
+        "created_at": report.created_at.isoformat(),
+    }
+
+
+@analyze_bp.route("/analyze", methods=["POST"])
+@roles_required("developer", "client")
+def analyze():
+    payload = request.get_json(silent=True) or {}
+    raw_url = payload.get("url")
+    project_id = payload.get("project_id")
+    project_name = payload.get("project_name")
+
+    if not raw_url or not raw_url.strip():
+        return jsonify({"error": "url is required"}), 400
+
+    url = normalize_url(raw_url)
+    if url is None:
+        return jsonify({"error": "invalid url"}), 400
+
+    acting_user_id = int(get_jwt_identity())
+    acting_role = get_jwt().get("role")
+
+    if project_id:
+        filters = {"project_id": project_id}
+        filters["developer_id" if acting_role == "developer" else "client_id"] = acting_user_id
+        project = Project.query.filter_by(**filters).first()
+        if not project:
+            return jsonify({"error": "project not found for this account"}), 404
+    else:
+        if not project_name:
+            return jsonify({"error": "project_id, or project_name, is required"}), 400
+
+        if acting_role == "developer":
+            developer_id = acting_user_id
+            client_id = payload.get("client_id")
+            client_email = payload.get("client_email")
+            if not client_id and client_email:
+                client_id = _lookup_user_id(client_email, "client")
+                if client_id is None:
+                    return jsonify({"error": f"no client account found for {client_email}"}), 404
+        else:
+            client_id = acting_user_id
+            developer_id = payload.get("developer_id")
+            developer_email = payload.get("developer_email")
+            if not developer_id and developer_email:
+                developer_id = _lookup_user_id(developer_email, "developer")
+                if developer_id is None:
+                    return jsonify({"error": f"no developer account found for {developer_email}"}), 404
+
+        project = Project(project_name=project_name, developer_id=developer_id, client_id=client_id)
+        db.session.add(project)
+        db.session.flush()
+
+    try:
+        result = _run_scan_pipeline(url, project)
+    except ScanError as exc:
+        return jsonify({"error": exc.message}), exc.status
+
+    return jsonify(result)
+
+
+@analyze_bp.route("/reports/<int:report_id>/rescan", methods=["POST"])
+@jwt_required()
+def rescan(report_id):
+    """Re-runs the full scan pipeline against the same URL as an existing
+    report, tied to the same project. Adds a new report row rather than
+    overwriting the one being viewed, so score-over-time stays comparable.
+    """
+    user_id = int(get_jwt_identity())
+    role = get_jwt().get("role")
+
+    report = Report.query.get(report_id)
+    if not report:
+        return jsonify({"error": "report not found"}), 404
+
+    project = report.project
+    is_project_developer = role == "developer" and project.developer_id == user_id
+    is_project_client = role == "client" and project.client_id == user_id
+    if not (is_project_developer or is_project_client or role == "admin"):
+        return jsonify({"error": "forbidden"}), 403
+
+    try:
+        result = _run_scan_pipeline(report.url, project)
+    except ScanError as exc:
+        return jsonify({"error": exc.message}), exc.status
+
+    return jsonify(result)
