@@ -35,7 +35,7 @@ export default function AdminPanel() {
   if (loading) {
     return (
       <div className="flex justify-center py-20">
-        <Spinner className="h-8 w-8 text-sky-500" />
+        <Spinner className="h-8 w-8 text-brand-500" />
       </div>
     );
   }
@@ -48,7 +48,7 @@ export default function AdminPanel() {
         <section className="mb-10 grid grid-cols-2 gap-4 md:grid-cols-3">
           {Object.entries(overview).map(([key, value]) => (
             <div key={key} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{key.replace(/_/g, ' ')}</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{key.replace(/_/g, ' ')}</p>
               <p className="mt-1 text-2xl font-bold text-slate-900">{value}</p>
             </div>
           ))}
@@ -57,10 +57,10 @@ export default function AdminPanel() {
 
       {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
 
-      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">Users</h2>
+      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Users</h2>
       <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
         <table className="w-full text-left text-sm">
-          <thead className="border-b border-slate-100 text-xs uppercase text-slate-400">
+          <thead className="border-b border-slate-100 text-xs uppercase text-slate-500">
             <tr>
               <th className="px-4 py-3">Email</th>
               <th className="px-4 py-3">Role</th>

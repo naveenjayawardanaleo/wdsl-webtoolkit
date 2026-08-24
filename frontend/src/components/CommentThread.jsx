@@ -22,7 +22,7 @@ function Thread({ thread, onReply, onClose, canReply, canClose }) {
           <p className="text-xs font-semibold text-slate-500">{thread.author_email} &middot; {thread.author_role}</p>
           <p className="mt-1 text-slate-800">{thread.comment_text}</p>
         </div>
-        <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold uppercase ${isOpen ? 'bg-sky-100 text-sky-700' : 'bg-slate-200 text-slate-600'}`}>
+        <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold uppercase ${isOpen ? 'bg-brand-100 text-brand-700' : 'bg-slate-200 text-slate-600'}`}>
           {thread.status}
         </span>
       </div>
@@ -41,11 +41,15 @@ function Thread({ thread, onReply, onClose, canReply, canClose }) {
           }}
           className="mt-3 flex gap-2"
         >
+          <label htmlFor={`reply-${thread.comment_id}`} className="sr-only">
+            Reply to this thread
+          </label>
           <input
+            id={`reply-${thread.comment_id}`}
             value={replyText}
             onChange={(e) => setReplyText(e.target.value)}
             placeholder="Reply as the developer…"
-            className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-sky-400"
+            className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-brand-400"
           />
           <button type="submit" className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white">
             Reply
@@ -54,7 +58,7 @@ function Thread({ thread, onReply, onClose, canReply, canClose }) {
       )}
 
       {isOpen && canClose && (
-        <button onClick={() => onClose(thread.comment_id)} className="mt-3 text-sm font-medium text-sky-600 hover:underline">
+        <button onClick={() => onClose(thread.comment_id)} className="mt-3 text-sm font-medium text-brand-600 hover:underline">
           Mark resolved &amp; close thread
         </button>
       )}
@@ -111,17 +115,21 @@ export default function CommentThread({ reportId }) {
 
   return (
     <section className="mt-8">
-      <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-400">Collaboration hub</h2>
+      <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-500">Collaboration hub</h2>
 
       {user?.role === 'client' && (
         <form onSubmit={openComment} className="mb-6 flex gap-2">
+          <label htmlFor="new-comment" className="sr-only">
+            Ask your developer a question about this report
+          </label>
           <input
+            id="new-comment"
             value={newComment}
             onChange={(e) => setNewComment(e.target.value)}
             placeholder="Ask your developer a question about this report…"
-            className="flex-1 rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
+            className="flex-1 rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-brand-400 focus:ring-4 focus:ring-brand-100"
           />
-          <button type="submit" className="rounded-xl bg-sky-600 px-5 py-3 font-semibold text-white hover:bg-sky-700">
+          <button type="submit" className="rounded-xl bg-brand-600 px-5 py-3 font-semibold text-white hover:bg-brand-700">
             Open thread
           </button>
         </form>
@@ -147,7 +155,7 @@ export default function CommentThread({ reportId }) {
 
       {closedThreads.length > 0 && (
         <>
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Closed</h3>
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Closed</h3>
           <div className="space-y-3">
             {closedThreads.map((t) => (
               <Thread key={t.comment_id} thread={t} onReply={reply} onClose={close} canReply={false} canClose={false} />

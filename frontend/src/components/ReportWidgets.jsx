@@ -74,7 +74,7 @@ export function ViolationCard({ violation, statusControl }) {
       <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-500">
         <span>{violation.node_count} element{violation.node_count === 1 ? '' : 's'} affected</span>
         {violation.help_url && (
-          <a href={violation.help_url} target="_blank" rel="noreferrer" className="font-medium text-sky-600 hover:text-sky-700 hover:underline">
+          <a href={violation.help_url} target="_blank" rel="noreferrer" className="font-medium text-brand-600 hover:text-brand-700 hover:underline">
             Learn more
           </a>
         )}
