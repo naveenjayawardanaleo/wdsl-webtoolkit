@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { ScoreGauge, Spinner, ViolationCard, PlainSuggestionCard } from '../components/ReportWidgets';
 import AuthedImage from '../components/AuthedImage';
 import CommentThread from '../components/CommentThread';
+import InviteCollaborator from '../components/InviteCollaborator';
 
 const STATUS_LABEL = { todo: 'To do', in_progress: 'In progress', completed: 'Completed' };
 
@@ -52,7 +53,7 @@ export default function ReportView() {
   if (loading) {
     return (
       <div className="flex justify-center py-20">
-        <Spinner className="h-8 w-8 text-sky-500" />
+        <Spinner className="h-8 w-8 text-brand-500" />
       </div>
     );
   }
@@ -65,19 +66,21 @@ export default function ReportView() {
       <h1 className="mb-1 text-2xl font-bold text-slate-900">{isTechnical ? 'Technical report' : 'Your accessibility report'}</h1>
       <p className="mb-8 truncate text-slate-500">{report.url}</p>
 
+      {report.project && <InviteCollaborator project={report.project} onAdded={load} />}
+
       <section className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-3">
         <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">Accessibility score</h2>
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Accessibility score</h2>
           <ScoreGauge score={report.accessibility_score} />
         </div>
         <div className="flex flex-col justify-center rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">Page type (CV model)</h2>
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Page type (CV model)</h2>
           <p className="text-2xl font-bold capitalize text-slate-900">{report.cv_prediction}</p>
           <p className="mt-1 text-slate-500">{report.cv_confidence}% confidence</p>
         </div>
         {isTechnical && report.lighthouse_result && !report.lighthouse_result.error && (
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">Lighthouse</h2>
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Lighthouse</h2>
             {Object.entries(report.lighthouse_result.categories || {}).map(([key, value]) => (
               <div key={key} className="flex items-center justify-between text-sm text-slate-600">
                 <span className="capitalize">{key.replace('-', ' ')}</span>
@@ -89,7 +92,7 @@ export default function ReportView() {
       </section>
 
       <section className="mb-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-400">Screenshot</h2>
+        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-500">Screenshot</h2>
         <AuthedImage
           path={`/reports/${reportId}/screenshot${isTechnical ? '/annotated' : ''}`}
           alt={`Screenshot of ${report.url}`}
@@ -100,7 +103,7 @@ export default function ReportView() {
       {isTechnical ? (
         <>
           <section className="mb-8">
-            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-400">
+            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-500">
               Violations ({report.violations?.length ?? 0})
             </h2>
             {(report.axe_violations || []).length === 0 ? (
@@ -124,7 +127,7 @@ export default function ReportView() {
           </section>
 
           <section className="mb-8">
-            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-400">Technical AI suggestions</h2>
+            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-500">Technical AI suggestions</h2>
             {(report.ai_suggestions_technical || []).length === 0 ? (
               <p className="text-slate-500">No AI suggestions on this report yet.</p>
             ) : (
@@ -138,7 +141,7 @@ export default function ReportView() {
         </>
       ) : (
         <section className="mb-8">
-          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-400">What this means for your site</h2>
+          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-500">What this means for your site</h2>
           {(report.ai_suggestions || []).length === 0 ? (
             <p className="text-slate-500">Your developer's account doesn't have AI suggestions enabled on this report.</p>
           ) : (
@@ -151,7 +154,7 @@ export default function ReportView() {
         </section>
       )}
 
-      <CommentThread reportId={reportId} />
+      {report.collaboration_enabled && <CommentThread reportId={reportId} />}
     </div>
   );
 }

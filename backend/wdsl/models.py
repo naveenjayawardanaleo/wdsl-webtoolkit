@@ -42,8 +42,10 @@ class Project(db.Model):
 
     project_id = db.Column(db.Integer, primary_key=True)
     project_name = db.Column(db.String(255), nullable=False)
-    developer_id = db.Column(db.Integer, db.ForeignKey("users.user_id"), nullable=False)
-    client_id = db.Column(db.Integer, db.ForeignKey("users.user_id"), nullable=False)
+    # Nullable: a developer or a client can create and manage a project solo.
+    # Collaboration Hub / shared-report UI only appears once both are attached.
+    developer_id = db.Column(db.Integer, db.ForeignKey("users.user_id"), nullable=True)
+    client_id = db.Column(db.Integer, db.ForeignKey("users.user_id"), nullable=True)
     created_at = db.Column(db.DateTime(timezone=True), default=utcnow, nullable=False)
 
     developer = db.relationship("User", foreign_keys=[developer_id])

@@ -8,6 +8,51 @@ from ..models import Project, Report, Violation
 reports_bp = Blueprint("reports", __name__)
 
 
+@reports_bp.route("/projects/<int:project_id>/collaborator", methods=["POST"])
+@roles_required("developer", "client")
+def add_collaborator(project_id):
+    """Attach the missing counterpart (by email) to a solo project.
+
+    A developer who owns a client-less project can invite a client, and a
+    client who owns a developer-less project can invite a developer. Once
+    both sides are attached, the Collaboration Hub becomes available.
+    """
+    from ..models import User
+
+    user_id = int(get_jwt_identity())
+    role = get_jwt().get("role")
+
+    project = Project.query.get(project_id)
+    if not project:
+        return jsonify({"error": "project not found"}), 404
+
+    email = (request.get_json(silent=True) or {}).get("email", "").strip().lower()
+    if not email:
+        return jsonify({"error": "email is required"}), 400
+
+    if role == "developer":
+        if project.developer_id != user_id:
+            return jsonify({"error": "forbidden"}), 403
+        if project.client_id:
+            return jsonify({"error": "this project already has a client"}), 400
+        collaborator = User.query.filter_by(email=email, role="client").first()
+        if not collaborator:
+            return jsonify({"error": f"no client account found for {email}"}), 404
+        project.client_id = collaborator.user_id
+    else:
+        if project.client_id != user_id:
+            return jsonify({"error": "forbidden"}), 403
+        if project.developer_id:
+            return jsonify({"error": "this project already has a developer"}), 400
+        collaborator = User.query.filter_by(email=email, role="developer").first()
+        if not collaborator:
+            return jsonify({"error": f"no developer account found for {email}"}), 404
+        project.developer_id = collaborator.user_id
+
+    db.session.commit()
+    return jsonify(project.to_dict())
+
+
 def _accessible_project_ids(user_id, role):
     if role == "admin":
         return None  # sentinel meaning "no restriction"
@@ -65,7 +110,10 @@ def get_report(report_id):
         return jsonify({"error": "forbidden"}), 403
 
     include_technical = role in ("developer", "admin")
-    return jsonify(report.to_dict(include_technical=include_technical))
+    data = report.to_dict(include_technical=include_technical)
+    data["collaboration_enabled"] = bool(report.project.developer_id and report.project.client_id)
+    data["project"] = report.project.to_dict()
+    return jsonify(data)
 
 
 @reports_bp.route("/reports/<int:report_id>/screenshot", methods=["GET"])

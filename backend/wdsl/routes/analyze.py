@@ -3,7 +3,7 @@ import uuid
 from pathlib import Path
 
 from flask import Blueprint, current_app, jsonify, request
-from flask_jwt_extended import get_jwt_identity
+from flask_jwt_extended import get_jwt, get_jwt_identity
 from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
@@ -25,15 +25,20 @@ def _save_screenshot(screenshot_bytes, suffix=""):
     return str(path)
 
 
+def _lookup_user_id(email, role):
+    from ..models import User
+
+    user = User.query.filter_by(email=email.strip().lower(), role=role).first()
+    return user.user_id if user else None
+
+
 @analyze_bp.route("/analyze", methods=["POST"])
-@roles_required("developer")
+@roles_required("developer", "client")
 def analyze():
     payload = request.get_json(silent=True) or {}
     raw_url = payload.get("url")
     project_id = payload.get("project_id")
     project_name = payload.get("project_name")
-    client_id = payload.get("client_id")
-    client_email = payload.get("client_email")
 
     if not raw_url or not raw_url.strip():
         return jsonify({"error": "url is required"}), 400
@@ -42,23 +47,36 @@ def analyze():
     if url is None:
         return jsonify({"error": "invalid url"}), 400
 
-    developer_id = int(get_jwt_identity())
+    acting_user_id = int(get_jwt_identity())
+    acting_role = get_jwt().get("role")
 
     if project_id:
-        project = Project.query.filter_by(project_id=project_id, developer_id=developer_id).first()
+        filters = {"project_id": project_id}
+        filters["developer_id" if acting_role == "developer" else "client_id"] = acting_user_id
+        project = Project.query.filter_by(**filters).first()
         if not project:
-            return jsonify({"error": "project not found for this developer"}), 404
+            return jsonify({"error": "project not found for this account"}), 404
     else:
-        if not client_id and client_email:
-            from ..models import User
+        if not project_name:
+            return jsonify({"error": "project_id, or project_name, is required"}), 400
 
-            client = User.query.filter_by(email=client_email.strip().lower(), role="client").first()
-            if not client:
-                return jsonify({"error": f"no client account found for {client_email}"}), 404
-            client_id = client.user_id
+        if acting_role == "developer":
+            developer_id = acting_user_id
+            client_id = payload.get("client_id")
+            client_email = payload.get("client_email")
+            if not client_id and client_email:
+                client_id = _lookup_user_id(client_email, "client")
+                if client_id is None:
+                    return jsonify({"error": f"no client account found for {client_email}"}), 404
+        else:
+            client_id = acting_user_id
+            developer_id = payload.get("developer_id")
+            developer_email = payload.get("developer_email")
+            if not developer_id and developer_email:
+                developer_id = _lookup_user_id(developer_email, "developer")
+                if developer_id is None:
+                    return jsonify({"error": f"no developer account found for {developer_email}"}), 404
 
-        if not project_name or not client_id:
-            return jsonify({"error": "project_id, or project_name + (client_id or client_email), is required"}), 400
         project = Project(project_name=project_name, developer_id=developer_id, client_id=client_id)
         db.session.add(project)
         db.session.flush()
@@ -87,11 +105,12 @@ def analyze():
 
     lighthouse_result = lighthouse.run_lighthouse(url)
 
-    # Freemium model (per the project proposal): the scan itself, the axe
-    # report, the score, and the screenshot are free for every developer.
-    # AI-generated suggestions are the paid feature, gated on the
-    # developer's own subscription status.
-    sub = Subscription.query.filter_by(user_id=developer_id).first()
+    # Freemium model: the scan itself, the axe report, the score, and the
+    # screenshot are free for every developer. AI-generated suggestions are
+    # the paid "Client Premium" feature, so they're gated on the project's
+    # client's own subscription -- a solo developer project (no client
+    # attached) never has anyone to gate against and gets no AI suggestions.
+    sub = Subscription.query.filter_by(user_id=project.client_id).first() if project.client_id else None
     if sub and sub.status == "active":
         suggestions = ai_suggestions.generate_suggestions(violations)
     else:
