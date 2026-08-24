@@ -65,10 +65,17 @@ body {
   }
 }
 
+/*
+ * Deliberately brief: dissertation screenshots are taken by hand, not by a
+ * script, so no page may ever be caught mid-reveal. 160ms is fast enough
+ * that even a screenshot taken immediately after scroll settles never
+ * lands mid-animation, while still reading as an intentional transition
+ * rather than a flat cut.
+ */
 @keyframes fade-in-up {
   from {
     opacity: 0;
-    transform: translateY(16px);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
@@ -77,5 +84,5 @@ body {
 }
 
 .animate-fade-in-up {
-  animation: fade-in-up 0.6s ease-out both;
+  animation: fade-in-up 160ms ease-out both;
 }

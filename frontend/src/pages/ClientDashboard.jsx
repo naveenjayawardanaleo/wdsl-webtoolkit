@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { apiFetch } from '../api/client';
 import { useAuth } from '../context/AuthContext';
-import { Spinner } from '../components/ReportWidgets';
+import { ScanProgress, Spinner } from '../components/ReportWidgets';
 
 export default function ClientDashboard() {
   const { token, user } = useAuth();
@@ -66,6 +66,11 @@ export default function ClientDashboard() {
           : 'Free tier: submit a URL and get your accessibility score and screenshot. Upgrade to Client Premium for plain-language AI guidance.'}
       </p>
 
+      {scanning ? (
+        <div className="mb-10">
+          <ScanProgress url={url} />
+        </div>
+      ) : (
       <form onSubmit={submitScan} className="mb-10 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Scan a website</h2>
         <label htmlFor="client-scan-url" className="sr-only">
@@ -135,15 +140,14 @@ export default function ClientDashboard() {
         {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
         <button
           type="submit"
-          disabled={scanning}
-          className="flex items-center gap-2 rounded-xl bg-brand-600 px-6 py-3 font-semibold text-white transition hover:bg-brand-700 disabled:opacity-60"
+          className="flex items-center gap-2 rounded-xl bg-brand-600 px-6 py-3 font-semibold text-white transition hover:bg-brand-700"
         >
-          {scanning && <Spinner />}
-          {scanning ? 'Scanning…' : 'Run scan'}
+          Run scan
         </button>
       </form>
+      )}
 
-      {lastResult && (
+      {lastResult && !scanning && (
         <div className="mb-10 rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-emerald-800">
           Scan complete &mdash; accessibility score {lastResult.accessibility_score}.{' '}
           <Link to={`/reports/${lastResult.report_id}`} className="font-semibold underline">

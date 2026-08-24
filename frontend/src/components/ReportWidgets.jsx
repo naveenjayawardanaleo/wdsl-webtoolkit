@@ -35,7 +35,7 @@ export function ScoreGauge({ score }) {
           strokeLinecap="round"
           strokeDasharray={circumference}
           strokeDashoffset={offset}
-          className={`transition-all duration-700 ease-out ${scoreRingColor(score ?? 0)}`}
+          className={`transition-all duration-300 ease-out ${scoreRingColor(score ?? 0)}`}
         />
       </svg>
       <div className={`absolute text-4xl font-bold ${scoreColor(score ?? 0)}`}>{score ?? '-'}</div>
@@ -80,6 +80,43 @@ export function ViolationCard({ violation, statusControl }) {
         )}
       </div>
       {statusControl}
+    </div>
+  );
+}
+
+const SCAN_STAGES = [
+  'Loading the page and capturing a screenshot',
+  'Running axe-core and Google Lighthouse',
+  "Classifying the page with the computer vision model",
+  'Generating suggestions',
+];
+
+/**
+ * A stable, non-empty "scan in progress" panel -- used for both the first
+ * scan and a rescan. Deliberately static (no per-stage ticking, since the
+ * backend runs the pipeline as one blocking call and doesn't report real
+ * incremental progress) so there's nothing here that could be caught
+ * mid-animation by a screenshot; it just stays on screen unchanged until
+ * the scan resolves and the results replace it outright.
+ */
+export function ScanProgress({ url }) {
+  return (
+    <div className="rounded-2xl border border-brand-200 bg-brand-50 p-6">
+      <div className="flex items-center gap-3">
+        <Spinner className="h-6 w-6 text-brand-600" />
+        <div>
+          <p className="font-semibold text-brand-900">Scanning {url}</p>
+          <p className="text-sm text-brand-700">This can take up to a minute.</p>
+        </div>
+      </div>
+      <ul className="mt-4 space-y-2 border-t border-brand-100 pt-4 text-sm text-brand-800">
+        {SCAN_STAGES.map((stage) => (
+          <li key={stage} className="flex items-center gap-2.5">
+            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-400" aria-hidden="true" />
+            {stage}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
