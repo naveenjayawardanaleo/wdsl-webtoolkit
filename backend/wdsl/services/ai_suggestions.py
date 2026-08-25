@@ -14,6 +14,16 @@ from flask import current_app
 
 logger = logging.getLogger(__name__)
 
+# Pinned rather than aliased: the "latest" alias (gemini-flash-latest) was
+# measured to be intermittently very slow/hanging under real load (503s and
+# 20-60s timeouts, reproduced with plain curl, no SDK involved), while this
+# specific version answered in ~3s across repeated tests. Gemini model
+# versions do get retired on a rolling basis (gemini-1.5-flash, this
+# project's original choice, stopped resolving entirely -- see
+# docs/gemini_integration_debug_notes.md), so this will need revisiting if
+# gemini-3.5-flash is retired later; that's a known tradeoff, not an oversight.
+MODEL_NAME = "gemini-3.5-flash"
+
 _PROMPT_TEMPLATE = """You are helping an accessibility auditing tool explain WCAG violations found on a website.
 Given the JSON list of axe-core violations below, produce a JSON object with exactly two keys: "technical" and "plain_language".
 
@@ -69,7 +79,7 @@ def generate_suggestions(violations):
         import google.generativeai as genai
 
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel("gemini-1.5-flash")
+        model = genai.GenerativeModel(MODEL_NAME)
 
         compact_violations = [
             {
@@ -92,7 +102,7 @@ def generate_suggestions(violations):
         parsed = json.loads(response.text)
         if "technical" not in parsed or "plain_language" not in parsed:
             raise ValueError("Gemini response missing required keys")
-        parsed["generated_by"] = "gemini-1.5-flash"
+        parsed["generated_by"] = MODEL_NAME
         return parsed
 
     except Exception as exc:  # noqa: BLE001 - any Gemini/SDK failure must degrade gracefully

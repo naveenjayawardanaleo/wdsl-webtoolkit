@@ -88,26 +88,65 @@ Tested the five candidates the debug request named, in order:
    fully deprecated by Google in favour of `google-genai` — a separate, non-blocking
    follow-up) constructs the request.
 
-## Status: not fixed — needs a real credential
+## Resolution — a new key surfaced two more real issues, both fixed
 
-This is not a bug in `wdsl/services/ai_suggestions.py`, `config.py`, or the analyze/rescan
-pipeline; all four were verified working correctly end to end, including the "graceful
-fallback" path itself, which behaved exactly as designed. The blocker is that the value
-currently in `GEMINI_API_KEY` is not a working Gemini API key by Google's own account.
+A new key was generated and pasted into `.env` (and, briefly, hardcoded as the
+`os.environ.get("GEMINI_API_KEY", ...)` default in `config.py` — flagged and reverted
+immediately: baking a live secret into source as a fallback default means it ships in every
+clone of the repo forever, and it's also functionally inert whenever `.env` sets the
+variable, since `os.environ.get(name, default)` only returns `default` when the variable is
+*absent*, not when it's present-but-invalid. `.env` is correctly gitignored and the key was
+never actually committed, so no history rewrite was needed — just removed it).
 
-**To close this out:** get a key from https://aistudio.google.com/apikey specifically (the
-dedicated Gemini API key generator, matching what `backend/.env.example` was written
-against), paste the full string into `backend/.env`, restart the server, and re-run a scan.
-The fastest independent way to confirm a new key works *before* even touching the app:
+Re-running the same `curl` reproduction from Step 4 with the new key surfaced two more
+concrete, real problems, in order:
 
-```bash
-curl -s -X POST \
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=YOUR_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"contents":[{"parts":[{"text":"say hi"}]}]}'
+**Problem 2 — the pinned model name was retired.** `gemini-1.5-flash` (the model this code
+originally called) now 404s for every key, including the new one — Google has fully retired
+it. Worse, `curl .../v1beta/models?key=...` (`ListModels`) showed the *next* two obvious
+replacements were also gone: `gemini-2.5-flash` 404s with *"This model ... is no longer
+available to new users. Please update your code to use models/gemini-3.6-flash"* — Google's
+own model catalogue had moved two full generations in the time since this integration was
+written. This is exactly candidate cause #2 from the original debug request ("the model name
+used in the code no longer being a valid/available model"), confirmed this time.
+
+**Problem 3 — the newest alias was itself unreliable.** Fixed the model name to
+`gemini-flash-latest` per Google's own suggestion, and it authenticated fine (proving the new
+key really was valid) but then intermittently returned `503 UNAVAILABLE` ("high demand") and,
+on other attempts, hung until timeout (`20s` via the SDK, `30-60s` via plain `curl` with zero
+SDK code involved) — for the *identical* simple prompt that had succeeded in ~2 seconds
+minutes earlier. This ruled out every code-side explanation (JSON-mode generation config,
+prompt length, SDK transport — REST vs. the default gRPC — were all tested independently and
+made no difference) and pointed at real-time capacity variance on Google's side for that
+specific alias.
+
+**Fix:** switched to `gemini-3.5-flash`, a specific pinned version (not an alias), which
+answered correctly in ~3 seconds across every repeated test. `MODEL_NAME` is now a single
+module-level constant in `ai_suggestions.py` used both to call the model and to populate
+`generated_by`, instead of two separate string literals that could drift out of sync the way
+they did before (`GenerativeModel("gemini-1.5-flash")` calling code updated to
+`"gemini-flash-latest"` at one point while `parsed["generated_by"] = "gemini-1.5-flash"` a few
+lines down stayed unchanged — the kind of thing that's easy to miss under exactly this sort
+of iterative debugging). This is a known tradeoff, not an oversight: a pinned version gives
+predictable dissertation-demo behaviour today at the cost of needing revisiting if
+`gemini-3.5-flash` is retired later, the same way `gemini-1.5-flash` was.
+
+## Confirmed working end to end
+
+Re-ran a real rescan (`POST /reports/11/rescan`) against `skyhomesengineering.lk`'s 8 real
+axe-core violations:
+
+```
+generated_by: gemini-3.5-flash
 ```
 
-A working key returns a `candidates` array with generated text; this project's key returns
-the `401` above. Once that `curl` call succeeds, `report.ai_suggestions.generated_by` should
-read `"gemini-1.5-flash"` instead of `"fallback"`, with real generated `technical` and
-`plain_language` text instead of the `[AI suggestion unavailable: ...]` placeholder.
+with genuinely distinct, on-topic generated text for both audiences — e.g. for
+`color-contrast`, technical: *"Text elements fail to meet the WCAG 2.1 Success Criterion
+1.4.3 minimum contrast ratio of 4.5:1 ... Modify the CSS 'color' and 'background-color'
+declarations..."*; plain-language: *"Some text on your website is too hard to read because
+the text color is too close to the background color. This makes reading difficult for people
+with low vision, color blindness..."* — for all 8 violations, not a subset.
+
+`tests/test_ai_suggestions.py::test_4_1_gemini_call_succeeds_when_key_configured` — previously
+skipped in every test run in this project (no key was ever configured before) — now runs and
+passes for the first time: `3 passed` where it was `2 passed, 1 skipped`.
