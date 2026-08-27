@@ -202,19 +202,6 @@ export default function ReportView() {
                   </div>
                 )}
               </section>
-
-              <section className="mb-8">
-                <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-500">Technical AI suggestions</h2>
-                {(report.ai_suggestions_technical || []).length === 0 ? (
-                  <p className="text-slate-500">No AI suggestions on this report yet.</p>
-                ) : (
-                  <div className="space-y-3">
-                    {report.ai_suggestions_technical.map((s) => (
-                      <PlainSuggestionCard key={s.id} suggestion={s} />
-                    ))}
-                  </div>
-                )}
-              </section>
             </>
           ) : (
             <section className="mb-8">

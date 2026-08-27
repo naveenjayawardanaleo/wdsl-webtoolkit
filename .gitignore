@@ -8,6 +8,9 @@ dist/
 screenshots/
 backend/storage/
 .pytest_cache/
+.DS_Store
+.vscode/
+.idea/
 
 AImodels/checkpoints/
 AImodels/checkpoints_ft/

@@ -10,5 +10,4 @@ axe-playwright-python
 torch
 torchvision
 pillow
-google-generativeai
 pytest

@@ -92,9 +92,12 @@ class Report(db.Model):
             "cv_prediction": self.cv_prediction,
             "cv_confidence": self.cv_confidence,
             "created_at": self.created_at.isoformat() if self.created_at else None,
-            "ai_suggestions": (self.ai_suggestions or {}).get("plain_language", []),
         }
         if include_technical:
+            # The client-facing plain-language write-up is deliberately left
+            # out of technical (developer/admin) responses -- AI suggestions
+            # are exclusive to the client view. ai_suggestions_technical stays,
+            # since that's the developer-oriented write-up, not client-facing.
             base.update(
                 {
                     "annotated_screenshot_path": self.annotated_screenshot_path,
@@ -104,6 +107,8 @@ class Report(db.Model):
                     "violations": [v.to_dict() for v in self.violations],
                 }
             )
+        else:
+            base["ai_suggestions"] = (self.ai_suggestions or {}).get("plain_language", [])
         return base
 
 

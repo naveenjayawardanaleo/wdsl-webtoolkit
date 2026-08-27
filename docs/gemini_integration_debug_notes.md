@@ -147,6 +147,36 @@ declarations..."*; plain-language: *"Some text on your website is too hard to re
 the text color is too close to the background color. This makes reading difficult for people
 with low vision, color blindness..."* — for all 8 violations, not a subset.
 
+## Follow-up — it broke again, and this time the SDK itself was the cause
+
+A later rescan started returning `generated_by: "fallback"` again, with the server log now
+showing `504 Deadline expired before operation could complete` — a different failure than any
+of the four causes above (not an auth error, not a 404, not a rate limit). The suspicion from
+Problem 3 was "real-time capacity variance on Google's side," so the first check was whether
+that was still true: a plain `curl` to the identical endpoint, same key, same model, same
+`response_mime_type: application/json` config the app actually sends, succeeded in 2–6
+seconds, repeatedly, every time it was tried. The SDK call kept failing at the same moment.
+
+That's a different kind of finding than "Google is briefly overloaded" — if the API itself is
+healthy and answering a byte-identical request in seconds, but the SDK call to that same
+endpoint reliably times out, the SDK is the thing that's broken, not the network. (The Step-4
+note above about having tested `transport="rest"` on the SDK "with no difference" was true as
+far as it went — it also timed out — but at the time that was read as *further evidence of
+Google-side flakiness*, not as evidence the SDK itself was the problem. In hindsight the two
+explanations were never actually distinguished from each other; this time they were, by
+bypassing the SDK completely.)
+
+**Fix:** rewrote `generate_suggestions()` to call
+`https://generativelanguage.googleapis.com/v1beta/models/{MODEL_NAME}:generateContent`
+directly via `urllib.request` (Python stdlib — no new dependency), building the exact same
+request body the SDK was constructing. Removed the `google-generativeai` import and the
+package from `requirements.txt` entirely — it was only ever used in this one function, and it
+was already flagged as fully deprecated by Google (see Step 2 above) independent of this
+reliability problem. Re-confirmed end to end: a real rescan of `skyhomesengineering.lk` again
+returned `generated_by: "gemini-3.5-flash"` with genuine generated text for all 8 violations,
+and the full test suite (27 tests, including the slow real-network ones) went from 116s to
+69s — consistent with no longer paying for a hanging SDK call anywhere in the run.
+
 `tests/test_ai_suggestions.py::test_4_1_gemini_call_succeeds_when_key_configured` — previously
 skipped in every test run in this project (no key was ever configured before) — now runs and
 passes for the first time: `3 passed` where it was `2 passed, 1 skipped`.
